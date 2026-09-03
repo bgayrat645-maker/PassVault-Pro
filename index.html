@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PassVault Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kjua@0.9.0/dist/kjua.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --card-bg: rgba(28, 28, 30, 0.65);
+            --modal-bg: #1c1c1e;
+            --accent-color: #0A84FF;
+            --green-color: #30D158;
+            --red-color: #FF453A;
+            --text-main: #FFFFFF;
+            --text-sub: #8E8E93;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --input-bg: rgba(120, 120, 128, 0.16);
+        }
+
+        body.light-theme {
+            --bg-color: #F2F2F7;
+            --card-bg: #FFFFFF;
+            --modal-bg: #FFFFFF;
+            --text-main: #000000;
+            --text-sub: #8E8E93;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --input-bg: rgba(120, 120, 128, 0.12);
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color); color: var(--text-main);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; transition: background 0.3s;
+        }
+
+        .app-frame {
+            width: 100%; max-width: 414px; height: 100vh; max-height: 850px;
+            background: var(--bg-color); border: 1px solid var(--border-color);
+            border-radius: 48px; display: flex; flex-direction: column;
+            overflow: hidden; position: relative; box-shadow: 0 30px 100px rgba(0, 0, 0, 0.3);
+        }
+
+        .screen {
+            flex: 1; display: flex; flex-direction: column; padding: 20px;
+            overflow-y: auto; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+        }
+
+        .screen.hidden { transform: scale(0.95); opacity: 0; pointer-events: none; }
+        .lock-screen { justify-content: center; align-items: center; text-align: center; z-index: 10; }
+
+        .app-icon {
+            width: 88px; height: 88px; background: linear-gradient(180deg, #2c2c2e 0%, #1c1c1e 100%);
+            border: 1px solid var(--border-color); border-radius: 22px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 38px; color: var(--accent-color); margin-bottom: 20px;
+        }
+
+        .input-field, .select-field, textarea.input-field {
+            width: 100%; padding: 14px 18px; background: var(--input-bg);
+            border: none; border-radius: 12px; color: var(--text-main);
+            font-size: 1rem; outline: none; transition: all 0.2s;
+        }
+
+        .select-field option { background: var(--modal-bg); color: var(--text-main); }
+
+        .btn-primary {
+            width: 100%; padding: 16px; background: var(--accent-color);
+            border: none; border-radius: 14px; color: white; font-size: 1rem;
+            font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .btn-primary:active { transform: scale(0.98); opacity: 0.8; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-top: 10px; }
+        .header h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+
+        .icon-btn {
+            background: var(--input-bg); border: none; width: 36px; height: 36px;
+            border-radius: 50%; color: var(--accent-color); font-size: 1rem;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+        }
+
+        .category-bar {
+            display: flex; background: var(--input-bg); border-radius: 10px;
+            padding: 2px; margin-bottom: 16px; gap: 2px; overflow-x: auto;
+        }
+
+        .cat-btn {
+            flex: 1; padding: 6px 8px; border: none; background: transparent;
+            color: var(--text-sub); font-size: 0.75rem; font-weight: 500;
+            border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+
+        .cat-btn.active {
+            background: var(--card-bg); color: var(--text-main); font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .search-box { position: relative; margin-bottom: 14px; }
+        .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-sub); }
+        .search-box input { padding-left: 36px; font-size: 0.95rem; border-radius: 10px; }
+
+        .vault-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
+
+        .card {
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 12px 16px; display: flex;
+            align-items: center; justify-content: space-between; cursor: pointer;
+        }
+
+        .card-left { display: flex; align-items: center; gap: 14px; overflow: hidden; }
+        .card-icon-wrap {
+            width: 40px; height: 40px; border-radius: 10px; background: var(--input-bg);
+            display: flex; justify-content: center; align-items: center; flex-shrink: 0;
+        }
+        .card-icon-wrap img { width: 24px; height: 24px; object-fit: contain; }
+        .card-icon-wrap i { font-size: 1.1rem; color: var(--accent-color); }
+        .card-details h3 { font-size: 0.95rem; font-weight: 600; }
+        .card-details p { font-size: 0.8rem; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+
+        .toast {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: rgba(255, 255, 255, 0.9); color: black; padding: 10px 20px;
+            border-radius: 25px; font-weight: 600; font-size: 0.85rem; z-index: 100;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        .full-modal {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            height: 100%; width: 100%; background: var(--modal-bg); padding: 20px;
+            transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 50; display: flex; flex-direction: column; overflow-y: auto;
+        }
+        .full-modal.active { transform: translateY(0); }
+
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 8px; }
+        .detail-group { background: var(--input-bg); border-radius: 14px; padding: 12px 16px; margin-bottom: 10px; }
+        .detail-label { font-size: 0.75rem; color: var(--text-sub); text-transform: uppercase; margin-bottom: 4px; }
+        .detail-value-wrap { display: flex; justify-content: space-between; align-items: center; }
+
+        .settings-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--input-bg); padding: 14px 16px; border-radius: 14px;
+            margin-bottom: 10px; cursor: pointer;
+        }
+
+        #qrContainer canvas, #qrContainer img { border-radius: 12px; margin: 15px auto; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="app-frame" id="appFrame">
+        <div id="toast" class="toast">Nusxalandi!</div>
+
+        <div id="lockScreen" class="screen lock-screen">
+            <div class="app-icon"><i class="fa-solid fa-key"></i></div>
+            <h2 style="font-weight: 700;">PassVault Pro</h2>
+            <p style="color: var(--text-sub); margin-top: 4px; font-size: 0.9rem;" id="txtLockSub">iOS Parollar Ombori</p>
+
+            <div style="margin: 28px 0; width: 100%;">
+                <input type="password" id="masterKey" class="input-field" style="text-align: center;" placeholder="Master Parol">
+            </div>
+            <button class="btn-primary" onclick="unlockApp()" id="btnUnlock">Ochish</button>
+        </div>
+
+        <div id="mainScreen" class="screen hidden">
+            <div class="header">
+                <h1 id="txtTitle">Parollar</h1>
+                <div style="display: flex; gap: 6px;">
+                    <button class="icon-btn" onclick="openSettingsModal()"><i class="fa-solid fa-gear"></i></button>
+                    <button class="icon-btn" onclick="openAddModal()"><i class="fa-solid fa-plus"></i></button>
+                    <button class="icon-btn" onclick="lockApp()" style="color: var(--red-color);"><i class="fa-solid fa-lock"></i></button>
+                </div>
+            </div>
+
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="input-field" id="searchInput" oninput="renderVault()" placeholder="Qidirish">
+            </div>
+
+            <div class="category-bar">
+                <button class="cat-btn active" onclick="filterCategory('all', this)" id="catAll">Barchasi</button>
+                <button class="cat-btn" onclick="filterCategory('account', this)" id="catAcc">Akkauntlar</button>
+                <button class="cat-btn" onclick="filterCategory('card', this)" id="catCard">Kartalar</button>
+                <button class="cat-btn" onclick="filterCategory('doc', this)" id="catDoc">Hujjatlar</button>
+            </div>
+
+            <div class="vault-list" id="vaultList"></div>
+        </div>
+
+        <div id="settingsModal" class="full-modal">
+            <div class="modal-header">
+                <h2 style="font-size: 1.4rem;" id="txtSettingsTitle">Sozlamalar</h2>
+                <button class="icon-btn" onclick="closeSettingsModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <div class="settings-item" onclick="toggleTheme()">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <i class="fa-solid fa-moon" id="themeIcon" style="color:var(--accent-color);"></i>
+                        <span style="font-weight:500;" id="txtThemeLabel">Mavzu (Tun / Kun)</span>
+                    </div>
+                    <span style="font-size:0.85rem; color:var(--text-sub);" id="txtThemeStatus">Tun</span>
+                </div>
+
+                <div class="settings-item" onclick="toggleLanguage()">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <i class="fa-solid fa-globe" style="color:var(--accent-color);"></i>
+                        <span style="font-weight:500;" id="txtLangLabel">Ilova tili</span>
+                    </div>
+                    <span style="font-weight:600; color:var(--accent-color);" id="txtLangStatus">O'zbekcha</span>
+                </div>
+
+                <div class="settings-item">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <i class="fa-solid fa-clock" style="color:var(--accent-color);"></i>
+                        <span style="font-weight:500;" id="txtAutoLockLabel">Auto Lock Taymeri</span>
+                    </div>
+                    <select id="autoLockTimer" onchange="updateAutoLockSetting()" style="background:transparent; border:none; color:var(--accent-color); font-weight:600; outline:none; text-align:right;">
+                        <option value="0">O'chiq</option>
+                        <option value="15">15 soniya</option>
+                        <option value="30">30 soniya</option>
+                        <option value="60">1 daqiqa</option>
+                    </select>
+                </div>
+
+                <div class="settings-item" onclick="openTrashModal()">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <i class="fa-solid fa-trash" style="color:var(--red-color);"></i>
+                        <span style="font-weight:500;" id="txtTrashLabel">Chiqitdon</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="color:var(--text-sub); font-size:0.8rem;"></i>
+                </div>
+            </div>
+        </div>
+
+        <div id="addModal" class="full-modal">
+            <div class="modal-header">
+                <h2 style="font-size: 1.4rem;" id="txtAddTitle">Yangi Element</h2>
+                <button class="icon-btn" onclick="closeAddModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap: 12px;">
+                <select id="newType" class="select-field" onchange="renderAddFields()">
+                    <option value="account">Akkaunt (Login & Parol)</option>
+                    <option value="card">Bank Kartasi</option>
+                    <option value="doc">Hujjat / Rasm Saqlash</option>
+                </select>
+
+                <div id="addFields" style="display:flex; flex-direction:column; gap: 12px;"></div>
+
+                <button class="btn-primary" onclick="saveAccount()" style="margin-top: 12px;" id="btnSave">Saqlash</button>
+            </div>
+        </div>
+
+        <div id="detailModal" class="full-modal">
+            <div class="modal-header">
+                <h2 style="font-size: 1.4rem;" id="txtDetailTitle">Ma'lumotlar</h2>
+                <button class="icon-btn" onclick="closeDetailModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="detailContent" style="display:flex; flex-direction:column; gap: 8px;"></div>
+        </div>
+
+        <div id="trashModal" class="full-modal">
+            <div class="modal-header">
+                <h2 style="font-size: 1.4rem;" id="txtTrashTitle">Chiqitdon</h2>
+                <button class="icon-btn" onclick="closeTrashModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="vault-list" id="trashList"></div>
+        </div>
+
+        <div id="qrModal" class="full-modal" style="justify-content:center; align-items:center; text-align:center;">
+            <div class="modal-header" style="width:100%;">
+                <h2>QR Kod Ulashish</h2>
+                <button class="icon-btn" onclick="closeQrModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="qrContainer"></div>
+            <p style="color:var(--text-sub); font-size:0.85rem; margin-top:10px;">Skanerlash orqali ma'lumotni oling</p>
+        </div>
+    </div>
+
+    <script>
+        let masterPassword = "";
+        let vault = [];
+        let trash = [];
+        let currentCategory = 'all';
+        let currentLang = 'uz';
+        let autoLockTimeout = null;
+        let autoLockSeconds = 0;
+
+        function resetAutoLockTimer() {
+            if (autoLockTimeout) clearTimeout(autoLockTimeout);
+            if (autoLockSeconds > 0 && masterPassword !== "") {
+                autoLockTimeout = setTimeout(() => {
+                    lockApp();
+                    showToast("Avto-Qulf ishga tushdi!");
+                }, autoLockSeconds * 1000);
+            }
+        }
+
+        ['click', 'mousemove', 'keypress', 'touchstart'].forEach(evt => {
+            document.addEventListener(evt, resetAutoLockTimer);
+        });
+
+        function updateAutoLockSetting() {
+            autoLockSeconds = parseInt(document.getElementById('autoLockTimer').value);
+            resetAutoLockTimer();
+        }
+
+        const translations = {
+            uz: {
+                title: "Parollar", search: "Qidirish", all: "Barchasi", acc: "Akkauntlar",
+                cards: "Kartalar", docs: "Hujjatlar", addTitle: "Yangi Element",
+                detailTitle: "Ma'lumotlar", save: "Saqlash", delete: "Chiqitdonga",
+                copied: "Nusxalandi!", empty: "Hech narsa topilmadi", lockSub: "iOS Parollar Ombori", unlock: "Ochish",
+                settings: "Sozlamalar", theme: "Mavzu (Tun / Kun)", themeStatusDark: "Tun", themeStatusLight: "Kun",
+                lang: "Ilova tili", autoLock: "Auto Lock Taymeri", trash: "Chiqitdon", langName: "O'zbekcha"
+            },
+            ru: {
+                title: "Пароли", search: "Поиск", all: "Все", acc: "Аккаунты",
+                cards: "Карты", docs: "Документы", addTitle: "Новый элемент",
+                detailTitle: "Детали", save: "Сохранить", delete: "В корзину",
+                copied: "Скопировано!", empty: "Ничего не найдено", lockSub: "Хранилище паролей iOS", unlock: "Открыть",
+                settings: "Настройки", theme: "Тема (Ночь / День)", themeStatusDark: "Ночь", themeStatusLight: "День",
+                lang: "Язык приложения", autoLock: "Авто-блокировка", trash: "Корзина", langName: "Русский"
+            },
+            en: {
+                title: "Passwords", search: "Search", all: "All", acc: "Accounts",
+                cards: "Cards", docs: "Documents", addTitle: "New Item",
+                detailTitle: "Details", save: "Save", delete: "To Trash",
+                copied: "Copied!", empty: "Nothing found", lockSub: "iOS Password Vault", unlock: "Unlock",
+                settings: "Settings", theme: "Theme (Dark / Light)", themeStatusDark: "Dark", themeStatusLight: "Light",
+                lang: "App Language", autoLock: "Auto-Lock Timer", trash: "Trash", langName: "English"
+            }
+        };
+
+        const domainMap = {
+            'google': 'google.com', 'gmail': 'google.com', 'telegram': 'telegram.org',
+            'instagram': 'instagram.com', 'facebook': 'facebook.com', 'github': 'github.com',
+            'youtube': 'youtube.com', 'payme': 'payme.uz', 'click': 'click.uz', 'apple': 'apple.com'
+        };
+
+        function getLogoUrl(siteName) {
+            if(!siteName) return null;
+            const cleanName = siteName.toLowerCase().trim();
+            for (let key in domainMap) {
+                if (cleanName.includes(key)) return `https://www.google.com/s2/favicons?domain=${domainMap[key]}&sz=64`;
+            }
+            if (cleanName.includes('.')) return `https://www.google.com/s2/favicons?domain=${cleanName}&sz=64`;
+            return null;
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('light-theme');
+            const icon = document.getElementById('themeIcon');
+            const status = document.getElementById('txtThemeStatus');
+            const isLight = document.body.classList.contains('light-theme');
+            const t = translations[currentLang];
+
+            icon.className = isLight ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+            status.innerText = isLight ? t.themeStatusLight : t.themeStatusDark;
+        }
+
+        function toggleLanguage() {
+            if (currentLang === 'uz') currentLang = 'ru';
+            else if (currentLang === 'ru') currentLang = 'en';
+            else currentLang = 'uz';
+
+            const t = translations[currentLang];
+            document.getElementById('txtTitle').innerText = t.title;
+            document.getElementById('searchInput').placeholder = t.search;
+            document.getElementById('catAll').innerText = t.all;
+            document.getElementById('catAcc').innerText = t.acc;
+            document.getElementById('catCard').innerText = t.cards;
+            document.getElementById('catDoc').innerText = t.docs;
+            document.getElementById('txtAddTitle').innerText = t.addTitle;
+            document.getElementById('txtDetailTitle').innerText = t.detailTitle;
+            document.getElementById('btnSave').innerText = t.save;
+            document.getElementById('txtLockSub').innerText = t.lockSub;
+            document.getElementById('btnUnlock').innerText = t.unlock;
+
+            // Sozlamalar matnlari
+            document.getElementById('txtSettingsTitle').innerText = t.settings;
+            document.getElementById('txtThemeLabel').innerText = t.theme;
+            document.getElementById('txtLangLabel').innerText = t.lang;
+            document.getElementById('txtLangStatus').innerText = t.langName;
+            document.getElementById('txtAutoLockLabel').innerText = t.autoLock;
+            document.getElementById('txtTrashLabel').innerText = t.trash;
+            document.getElementById('txtTrashTitle').innerText = t.trash;
+
+            const isLight = document.body.classList.contains('light-theme');
+            document.getElementById('txtThemeStatus').innerText = isLight ? t.themeStatusLight : t.themeStatusDark;
+
+            renderVault();
+        }
+
+        let uploadedFileBase64 = "";
+
+        function renderAddFields() {
+            const type = document.getElementById('newType').value;
+            const container = document.getElementById('addFields');
+
+            if (type === 'account') {
+                container.innerHTML = `
+                    <input type="text" id="newTitle" class="input-field" placeholder="Xizmat nomi (masalan: Google)">
+                    <input type="text" id="newUser" class="input-field" placeholder="Login / Email">
+                    <input type="password" id="newPass" class="input-field" placeholder="Parol">
+                `;
+            } else if (type === 'card') {
+                container.innerHTML = `
+                    <select id="newCardType" class="select-field" onchange="toggleCvvField()">
+                        <option value="uzcard">Uzcard / Humo / Boshqa</option>
+                        <option value="visa">Visa / Mastercard</option>
+                    </select>
+                    <input type="text" id="newTitle" class="input-field" placeholder="Karta nomi (masalan: Kapitalbank)">
+                    <input type="text" id="newCardNum" class="input-field" placeholder="Karta raqami">
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="newCardExp" class="input-field" placeholder="MM/YY">
+                        <input type="password" id="newCardCvv" class="input-field" style="display:none;" placeholder="CVV">
+                    </div>
+                `;
+            } else if (type === 'doc') {
+                uploadedFileBase64 = "";
+                container.innerHTML = `
+                    <input type="text" id="newTitle" class="input-field" placeholder="Hujjat Nomi (masalan: Pasport)">
+                    <input type="file" id="fileInput" class="input-field" accept="image/*" onchange="handleFileUpload(event)">
+                `;
+            }
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                uploadedFileBase64 = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function toggleCvvField() {
+            const cardType = document.getElementById('newCardType').value;
+            const cvvInput = document.getElementById('newCardCvv');
+            cvvInput.style.display = cardType === 'visa' ? 'block' : 'none';
+            if (cardType !== 'visa') cvvInput.value = '';
+        }
+
+        function unlockApp() {
+            const key = document.getElementById('masterKey').value;
+            if(!key) return showToast("Parol kiriting!");
+            
+            masterPassword = key;
+            const encryptedData = localStorage.getItem('passvault_db');
+            const encryptedTrash = localStorage.getItem('passvault_trash');
+
+            if(encryptedData) {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(encryptedData, masterPassword);
+                    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                    if(!decrypted) throw new Error();
+                    vault = JSON.parse(decrypted);
+                } catch(e) {
+                    return showToast("Noto'g'ri Master Parol!");
+                }
+            }
+
+            if(encryptedTrash) {
+                try {
+                    const bytesTrash = CryptoJS.AES.decrypt(encryptedTrash, masterPassword);
+                    trash = JSON.parse(bytesTrash.toString(CryptoJS.enc.Utf8)) || [];
+                } catch(e) { trash = []; }
+            }
+
+            document.getElementById('lockScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.remove('hidden');
+            renderAddFields();
+            renderVault();
+            resetAutoLockTimer();
+        }
+
+        function lockApp() {
+            masterPassword = ""; vault = []; trash = [];
+            if(autoLockTimeout) clearTimeout(autoLockTimeout);
+            document.getElementById('masterKey').value = "";
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('lockScreen').classList.remove('hidden');
+        }
+
+        function saveToStorage() {
+            const cipher = CryptoJS.AES.encrypt(JSON.stringify(vault), masterPassword).toString();
+            localStorage.setItem('passvault_db', cipher);
+            const cipherTrash = CryptoJS.AES.encrypt(JSON.stringify(trash), masterPassword).toString();
+            localStorage.setItem('passvault_trash', cipherTrash);
+        }
+
+        function saveAccount() {
+            const type = document.getElementById('newType').value;
+            const titleInput = document.getElementById('newTitle');
+            
+            if(!titleInput || !titleInput.value.trim()) return showToast("Sarlavhani to'ldiring");
+
+            let newItem = { id: Date.now(), type, title: titleInput.value.trim() };
+
+            if(type === 'account') {
+                newItem.user = document.getElementById('newUser')?.value || '';
+                newItem.pass = document.getElementById('newPass')?.value || '';
+            } else if(type === 'card') {
+                newItem.cardType = document.getElementById('newCardType')?.value || 'uzcard';
+                newItem.cardNum = document.getElementById('newCardNum')?.value || '';
+                newItem.exp = document.getElementById('newCardExp')?.value || '';
+                newItem.cvv = newItem.cardType === 'visa' ? (document.getElementById('newCardCvv')?.value || '') : '';
+            } else if(type === 'doc') {
+                newItem.fileData = uploadedFileBase64;
+            }
+
+            vault.push(newItem);
+            saveToStorage();
+            renderVault();
+            closeAddModal();
+            showToast("Saqlandi!");
+        }
+
+        function filterCategory(cat, btn) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderVault();
+        }
+
+        function renderVault() {
+            const list = document.getElementById('vaultList');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const t = translations[currentLang];
+            list.innerHTML = "";
+
+            const filtered = vault.filter(item => {
+                const matchesSearch = (item.title || '').toLowerCase().includes(search);
+                const matchesCat = currentCategory === 'all' || item.type === currentCategory;
+                return matchesSearch && matchesCat;
+            });
+
+            if(filtered.length === 0) {
+                list.innerHTML = `<p style="text-align:center; color:var(--text-sub); margin-top:60px; font-size:0.9rem;">${t.empty}</p>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.onclick = () => openDetailModal(item.id);
+
+                let iconHtml = `<i class="fa-solid fa-file-lines"></i>`;
+                let subText = "";
+
+                if (item.type === 'account') {
+                    const logoUrl = getLogoUrl(item.title);
+                    iconHtml = logoUrl 
+                        ? `<img src="${logoUrl}" alt="logo" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\\'fa-solid fa-globe\\'></i>';">`
+                        : `<i class="fa-solid fa-globe"></i>`;
+                    subText = item.user || t.acc;
+                } else if (item.type === 'card') {
+                    iconHtml = `<i class="fa-solid fa-credit-card" style="color:var(--green-color);"></i>`;
+                    subText = item.cardNum ? '•••• ' + item.cardNum.slice(-4) : t.cards;
+                } else if (item.type === 'doc') {
+                    iconHtml = `<i class="fa-solid fa-file-image" style="color:var(--accent-color);"></i>`;
+                    subText = "Rasm / Hujjat";
+                }
+
+                card.innerHTML = `
+                    <div class="card-left">
+                        <div class="card-icon-wrap">${iconHtml}</div>
+                        <div class="card-details">
+                            <h3>${escapeHtml(item.title)}</h3>
+                            <p>${escapeHtml(subText)}</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="color:var(--text-sub); font-size:0.8rem;"></i>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function openDetailModal(id) {
+            const item = vault.find(acc => acc.id === id);
+            if(!item) return;
+
+            const t = translations[currentLang];
+            const container = document.getElementById('detailContent');
+
+            let fieldsHtml = `<div class="detail-group"><div class="detail-label">Nomi</div><input type="text" id="editTitle" class="input-field" style="padding:4px 0; background:transparent;" value="${escapeHtml(item.title)}"></div>`;
+
+            if (item.type === 'account') {
+                fieldsHtml += `
+                    <div class="detail-group">
+                        <div class="detail-label">Login / Email</div>
+                        <div class="detail-value-wrap">
+                            <input type="text" id="editUser" class="input-field" style="padding:4px 0; background:transparent;" value="${escapeHtml(item.user || '')}">
+                            <button class="icon-btn" onclick="copyText(document.getElementById('editUser').value)"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                    </div>
+                    <div class="detail-group">
+                        <div class="detail-label">Parol</div>
+                        <div class="detail-value-wrap">
+                            <input type="password" id="editPass" class="input-field" style="padding:4px 0; background:transparent;" value="${escapeHtml(item.pass || '')}">
+                            <div style="display:flex; gap:8px;">
+                                <button class="icon-btn" onclick="togglePassVisibility()"><i class="fa-regular fa-eye" id="eyeIcon"></i></button>
+                                <button class="icon-btn" onclick="copyText(document.getElementById('editPass').value)"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (item.type === 'card') {
+                const isVisa = item.cardType === 'visa';
+                fieldsHtml += `
+                    <div class="detail-group">
+                        <div class="detail-label">Karta Raqami</div>
+                        <div class="detail-value-wrap">
+                            <input type="text" id="editCardNum" class="input-field" style="padding:4px 0; background:transparent;" value="${escapeHtml(item.cardNum || '')}">
+                            <button class="icon-btn" onclick="copyText(document.getElementById('editCardNum').value)"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <div class="detail-group" style="flex:1;">
+                            <div class="detail-label">Muddati</div>
+                            <input type="text" id="editExp" class="input-field" style="padding:4px 0; background:transparent;" value="${escapeHtml(item.exp || '')}">
+                        </div>
+                        ${isVisa ? `
+                        <div class="detail-group" style="flex:1;">
+                            <div class="detail-label">CVV</div>
+                            <input type="password" id="editCvv" class="input-field" style="padding:4px 0; background:transparent;" value="${escapeHtml(item.cvv || '')}">
+                        </div>` : ''}
+                    </div>
+                `;
+            } else if (item.type === 'doc') {
+                fieldsHtml += `
+                    <div class="detail-group" style="text-align:center;">
+                        <div class="detail-label">Saqlangan Rasm / Hujjat</div>
+                        ${item.fileData ? `<img src="${item.fileData}" style="max-width:100%; border-radius:10px; margin-top:8px;">` : '<p style="color:var(--text-sub);">Rasm yo\'q</p>'}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = fieldsHtml + `
+                <button class="btn-primary" onclick="showQrModal(${item.id})" style="background:var(--input-bg); color:var(--text-main); margin-top:6px;"><i class="fa-solid fa-qrcode"></i> QR Kod bilan ulashish</button>
+                <button class="btn-primary" onclick="updateAccount(${item.id})" style="margin-top:8px;">${t.save}</button>
+                <button class="btn-primary" onclick="moveToTrash(${item.id})" style="background:rgba(255,69,58,0.15); color:var(--red-color); margin-top:8px;">${t.delete}</button>
+            `;
+
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function showQrModal(id) {
+            const item = vault.find(acc => acc.id === id);
+            if(!item) return;
+
+            let shareStr = `Title: ${item.title}\n`;
+            if (item.type === 'account') shareStr += `User: ${item.user}\nPass: ${item.pass}`;
+            else if (item.type === 'card') shareStr += `Card: ${item.cardNum}\nExp: ${item.exp}`;
+
+            const qrContainer = document.getElementById('qrContainer');
+            qrContainer.innerHTML = "";
+            const el = kjua({ text: shareStr, size: 200, fill: "#0A84FF", back: "#FFFFFF" });
+            qrContainer.appendChild(el);
+
+            document.getElementById('qrModal').classList.add('active');
+        }
+
+        function closeQrModal() { document.getElementById('qrModal').classList.remove('active'); }
+
+        function moveToTrash(id) {
+            const item = vault.find(a => a.id === id);
+            if(item) {
+                vault = vault.filter(a => a.id !== id);
+                trash.push(item);
+                saveToStorage();
+                renderVault();
+                closeDetailModal();
+                showToast("Chiqitdonga o'tkazildi");
+            }
+        }
+
+        function openSettingsModal() { document.getElementById('settingsModal').classList.add('active'); }
+        function closeSettingsModal() { document.getElementById('settingsModal').classList.remove('active'); }
+
+        function openTrashModal() {
+            renderTrash();
+            document.getElementById('trashModal').classList.add('active');
+        }
+        function closeTrashModal() { document.getElementById('trashModal').classList.remove('active'); }
+
+        function renderTrash() {
+            const list = document.getElementById('trashList');
+            list.innerHTML = "";
+
+            if(trash.length === 0) {
+                list.innerHTML = `<p style="text-align:center; color:var(--text-sub); margin-top:40px;">Chiqitdon bo'sh</p>`;
+                return;
+            }
+
+            trash.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-left">
+                        <div class="card-details">
+                            <h3>${escapeHtml(item.title)}</h3>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="icon-btn" onclick="restoreFromTrash(${item.id})"><i class="fa-solid fa-rotate-left"></i></button>
+                        <button class="icon-btn" onclick="deletePermanently(${item.id})" style="color:var(--red-color);"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function restoreFromTrash(id) {
+            const item = trash.find(a => a.id === id);
+            if(item) {
+                trash = trash.filter(a => a.id !== id);
+                vault.push(item);
+                saveToStorage();
+                renderVault();
+                renderTrash();
+                showToast("Qayta tiklandi");
+            }
+        }
+
+        function deletePermanently(id) {
+            trash = trash.filter(a => a.id !== id);
+            saveToStorage();
+            renderTrash();
+            showToast("Butunlay o'chirildi");
+        }
+
+        function togglePassVisibility() {
+            const passInput = document.getElementById('editPass');
+            const eyeIcon = document.getElementById('eyeIcon');
+            if(passInput.type === 'password') {
+                passInput.type = 'text'; eyeIcon.className = 'fa-regular fa-eye-slash';
+            } else {
+                passInput.type = 'password'; eyeIcon.className = 'fa-regular fa-eye';
+            }
+        }
+
+        function updateAccount(id) {
+            const index = vault.findIndex(acc => acc.id === id);
+            if(index === -1) return;
+
+            const item = vault[index];
+            item.title = document.getElementById('editTitle').value;
+
+            if (item.type === 'account') {
+                item.user = document.getElementById('editUser').value;
+                item.pass = document.getElementById('editPass').value;
+            } else if (item.type === 'card') {
+                item.cardNum = document.getElementById('editCardNum').value;
+                item.exp = document.getElementById('editExp').value;
+                if (item.cardType === 'visa') item.cvv = document.getElementById('editCvv')?.value || '';
+            }
+
+            saveToStorage();
+            renderVault();
+            closeDetailModal();
+            showToast("Yangilandi!");
+        }
+
+        function copyText(text) {
+            navigator.clipboard.writeText(text);
+            showToast(translations[currentLang].copied);
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        function openAddModal() {
+            renderAddFields();
+            document.getElementById('addModal').classList.add('active');
+        }
+        function closeAddModal() { document.getElementById('addModal').classList.remove('active'); }
+        function closeDetailModal() { document.getElementById('detailModal').classList.remove('active'); }
+
+        function escapeHtml(str) { return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    </script>
+</body>
+</html>
